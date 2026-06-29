@@ -51,29 +51,34 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         root_folder_id = getattr(settings, 'GOOGLE_DRIVE_FOLDER_ID', None)
-        creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON', '')
+        client_email = os.getenv('GOOGLE_CLIENT_EMAIL', '')
+        private_key = os.getenv('GOOGLE_PRIVATE_KEY', '')
+        project_id = os.getenv('GOOGLE_PROJECT_ID', '')
         creds_path = getattr(settings, 'GOOGLE_APPLICATION_CREDENTIALS', None)
 
         if not root_folder_id or root_folder_id == "your_google_drive_folder_id_here":
             self.stderr.write("Error: GOOGLE_DRIVE_FOLDER_ID is not configured in settings or .env file.")
             return
 
-        if not creds_json and (not creds_path or not os.path.exists(creds_path)):
-            self.stderr.write("Error: Google Service Account credentials not found in env variable or JSON file.")
+        if not (client_email and private_key) and (not creds_path or not os.path.exists(creds_path)):
+            self.stderr.write("Error: Google Service Account credentials not found in env variables or JSON file.")
             return
 
         self.stdout.write("Connecting to Google Drive API...")
 
         try:
-            if creds_json:
-                import json
-                cleaned_json = creds_json.strip()
-                # Clean up any surrounding quotes added by environment wrapper utilities
-                if (cleaned_json.startswith('"') and cleaned_json.endswith('"')) or (cleaned_json.startswith("'") and cleaned_json.endswith("'")):
-                    cleaned_json = cleaned_json[1:-1]
-                
+            if client_email and private_key:
+                # Decode newline escapes in the private key string
+                formatted_key = private_key.replace('\\n', '\n').replace('"', '').strip()
+                creds_dict = {
+                    "type": "service_account",
+                    "project_id": project_id,
+                    "private_key": formatted_key,
+                    "client_email": client_email,
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                }
                 credentials = service_account.Credentials.from_service_account_info(
-                    json.loads(cleaned_json),
+                    creds_dict,
                     scopes=['https://www.googleapis.com/auth/drive.readonly']
                 )
             else:
