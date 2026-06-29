@@ -52,6 +52,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         root_folder_id = getattr(settings, 'GOOGLE_DRIVE_FOLDER_ID', None)
         creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON', '')
+        creds_path = getattr(settings, 'GOOGLE_APPLICATION_CREDENTIALS', None)
 
         if not root_folder_id or root_folder_id == "your_google_drive_folder_id_here":
             self.stderr.write("Error: GOOGLE_DRIVE_FOLDER_ID is not configured in settings or .env file.")
