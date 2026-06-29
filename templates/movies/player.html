@@ -95,7 +95,7 @@
                     preload="auto"
                     crossorigin="anonymous"
                 >
-                    <source src="{% url 'stream' movie.file_id %}" type="video/mp4">
+                    <source src="{% url 'stream' movie.file_id %}" type="{{ movie.mime_type }}">
                     Your browser does not support playing this content.
                 </video>
             </div>
