@@ -207,16 +207,10 @@ class StreamView(View):
         try:
             if creds_json:
                 import json
-                import ast
                 cleaned_json = creds_json.strip()
+                # Clean up any surrounding quotes added by environment wrapper utilities
                 if (cleaned_json.startswith('"') and cleaned_json.endswith('"')) or (cleaned_json.startswith("'") and cleaned_json.endswith("'")):
-                    try:
-                        cleaned_json = ast.literal_eval(cleaned_json)
-                    except Exception:
-                        pass
-                
-                # Replace literal control characters (newlines) which crash JSON parsing in standard environments
-                cleaned_json = cleaned_json.replace('\n', ' ').replace('\r', ' ')
+                    cleaned_json = cleaned_json[1:-1]
                 
                 credentials = service_account.Credentials.from_service_account_info(
                     json.loads(cleaned_json),
