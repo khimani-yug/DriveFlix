@@ -51,23 +51,30 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         root_folder_id = getattr(settings, 'GOOGLE_DRIVE_FOLDER_ID', None)
-        creds_path = getattr(settings, 'GOOGLE_APPLICATION_CREDENTIALS', None)
+        creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON', '')
 
         if not root_folder_id or root_folder_id == "your_google_drive_folder_id_here":
             self.stderr.write("Error: GOOGLE_DRIVE_FOLDER_ID is not configured in settings or .env file.")
             return
 
-        if not creds_path or not os.path.exists(creds_path):
-            self.stderr.write(f"Error: Google Service Account credentials file not found at '{creds_path}'.")
+        if not creds_json and (not creds_path or not os.path.exists(creds_path)):
+            self.stderr.write("Error: Google Service Account credentials not found in env variable or JSON file.")
             return
 
         self.stdout.write("Connecting to Google Drive API...")
 
         try:
-            credentials = service_account.Credentials.from_service_account_file(
-                creds_path,
-                scopes=['https://www.googleapis.com/auth/drive.readonly']
-            )
+            if creds_json:
+                import json
+                credentials = service_account.Credentials.from_service_account_info(
+                    json.loads(creds_json),
+                    scopes=['https://www.googleapis.com/auth/drive.readonly']
+                )
+            else:
+                credentials = service_account.Credentials.from_service_account_file(
+                    creds_path,
+                    scopes=['https://www.googleapis.com/auth/drive.readonly']
+                )
             service = build('drive', 'v3', credentials=credentials)
             
             active_folder_ids = set()

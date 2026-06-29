@@ -188,16 +188,25 @@ class UpdateProgressAPIView(View):
 class StreamView(View):
     def get(self, request, file_id, *args, **kwargs):
         movie = get_object_or_404(Movie, file_id=file_id)
-        
+        # 1. Fetch credentials dynamically from file path or raw environment JSON string
+        creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON', '')
         creds_path = getattr(settings, 'GOOGLE_APPLICATION_CREDENTIALS', None)
-        if not creds_path:
-            raise Http404("Google Application Credentials are not configured.")
         
         try:
-            credentials = service_account.Credentials.from_service_account_file(
-                creds_path,
-                scopes=['https://www.googleapis.com/auth/drive.readonly']
-            )
+            if creds_json:
+                import json
+                credentials = service_account.Credentials.from_service_account_info(
+                    json.loads(creds_json),
+                    scopes=['https://www.googleapis.com/auth/drive.readonly']
+                )
+            elif creds_path and os.path.exists(creds_path):
+                credentials = service_account.Credentials.from_service_account_file(
+                    creds_path,
+                    scopes=['https://www.googleapis.com/auth/drive.readonly']
+                )
+            else:
+                raise Http404("Google Application Credentials are not configured.")
+                
             credentials.refresh(GoogleAuthRequest())
             access_token = credentials.token
         except Exception as e:
