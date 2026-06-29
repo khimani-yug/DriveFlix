@@ -22,7 +22,19 @@ class FolderView(View):
                 'folder': None, 'subfolders': [], 'movies': [], 'breadcrumbs': []
             })
             
-        folder_obj = get_object_or_404(Folder, folder_id=current_id)
+        # Try to find the folder object. If it doesn't exist, we likely haven't synced yet.
+        # Handle this gracefully instead of throwing a 404 error on the index route.
+        try:
+            folder_obj = Folder.objects.get(folder_id=current_id)
+        except Folder.DoesNotExist:
+            if current_id == root_id:
+                # If we're hitting the root index and it's not in the DB, show an empty home view
+                # with instructions to run sync.
+                return render(request, 'movies/home.html', {
+                    'folder': None, 'subfolders': [], 'movies': [], 'breadcrumbs': [], 'is_root': True
+                })
+            else:
+                raise Http404("Folder not found. Please sync the database.")
         subfolders = folder_obj.subfolders.all()
         movies = folder_obj.movies.all()
         breadcrumbs = folder_obj.get_breadcrumbs()
