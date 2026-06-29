@@ -156,13 +156,30 @@
 
         <!-- Folder Name Context Header (Not root) -->
         {% if not is_root and folder %}
-        <div class="mb-8">
+        <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
                 <svg class="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
                 </svg>
                 {{ folder.name }}
             </h2>
+            
+            <!-- Dynamic Back Button -->
+            {% if folder.parent %}
+                <a href="{% url 'folder' folder.parent.folder_id %}" class="inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-slate-200 hover:text-white border border-zinc-800 transition-all duration-200">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"></path>
+                    </svg>
+                    <span>Back</span>
+                </a>
+            {% else %}
+                <a href="/" class="inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-slate-200 hover:text-white border border-zinc-800 transition-all duration-200">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"></path>
+                    </svg>
+                    <span>Back</span>
+                </a>
+            {% endif %}
         </div>
         {% endif %}
 
