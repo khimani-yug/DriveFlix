@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-black text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DriveFlix | Stream Your Cloud</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(17, 17, 17, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .red-brand-gradient {
+            background: linear-gradient(135deg, #e50914 0%, #b81d24 100%);
+        }
+        .text-brand-red {
+            color: #e50914;
+        }
+        .search-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .search-scroll::-webkit-scrollbar-track {
+            background: rgba(24, 24, 27, 0.5);
+        }
+        .search-scroll::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 3px;
+        }
+        .search-scroll::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46;
+        }
+    </style>
+</head>
+<body class="min-h-full flex flex-col antialiased selection:bg-red-600 selection:text-white max-w-full overflow-x-hidden">
+    
+    <!-- Navbar -->
+    <header class="sticky top-0 z-50 w-full glass-panel border-b border-zinc-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+            <!-- Brand Logo -->
+            <a href="/" class="flex items-center space-x-2 sm:space-x-3 flex-shrink-0 group">
+                <div class="h-10 w-10 sm:h-11 sm:w-11 rounded-xl red-brand-gradient flex items-center justify-center shadow-lg shadow-red-600/30 group-hover:scale-105 transition-all duration-300">
+                    <svg class="w-5.5 h-5.5 sm:w-6 sm:h-6 text-white fill-current" viewBox="0 0 24 24">
+                        <path d="M10 9v6l5-3z"/>
+                        <path fill-rule="evenodd" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <span class="text-2xl sm:text-3xl font-extrabold tracking-tighter text-red-600 group-hover:text-red-500 transition-colors duration-300 uppercase">
+                    DriveFlix
+                </span>
+            </a>
+
+            <!-- Global Search Box -->
+            <div class="relative flex-grow max-w-md mx-4 hidden md:block">
+                <div class="relative">
+                    <input 
+                        type="text" 
+                        id="search-input"
+                        placeholder="Search movies or folders..." 
+                        oninput="performSearch(this.value)"
+                        class="w-full bg-zinc-900/80 text-white placeholder-zinc-500 text-sm rounded-xl pl-10 pr-4 py-2 border border-zinc-800 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all"
+                    >
+                    <svg class="w-4 h-4 text-zinc-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <!-- Dropdown Search Results -->
+                <div id="search-dropdown" class="hidden absolute top-full left-0 right-0 mt-2 rounded-2xl border border-zinc-800 bg-zinc-950 p-2 shadow-2xl max-h-96 overflow-y-auto search-scroll z-50"></div>
+            </div>
+            
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <!-- Mobile Search Button -->
+                <button 
+                    onclick="toggleMobileSearch()"
+                    class="md:hidden p-2 rounded-xl bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </button>
+
+                <!-- Sync Button -->
+                <button 
+                    id="sync-btn"
+                    onclick="syncMovies()" 
+                    class="inline-flex items-center space-x-1 sm:space-x-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold bg-zinc-900 hover:bg-zinc-800 text-slate-200 hover:text-white border border-zinc-800 transition-all active:scale-95 duration-200 group"
+                >
+                    <svg id="sync-icon" class="w-4 h-4 text-red-500 transition-transform duration-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"></path>
+                    </svg>
+                    <span id="sync-text" class="hidden xs:inline">Sync Vault</span>
+                    <span id="sync-text-mobile" class="xs:hidden">Sync</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile Search overlay -->
+    <div id="mobile-search-bar" class="hidden md:hidden bg-zinc-950 px-4 py-3 border-b border-zinc-900 relative">
+        <div class="relative">
+            <input 
+                type="text" 
+                id="search-input-mobile"
+                placeholder="Search movies or folders..." 
+                oninput="performSearch(this.value, true)"
+                class="w-full bg-zinc-900/80 text-white placeholder-zinc-500 text-sm rounded-xl pl-10 pr-4 py-2.5 border border-zinc-800 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-600 transition-all"
+            >
+            <svg class="w-4 h-4 text-zinc-500 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+        </div>
+        <div id="search-dropdown-mobile" class="hidden mt-2 rounded-2xl border border-zinc-800 bg-zinc-950 p-2 shadow-2xl max-h-72 overflow-y-auto search-scroll"></div>
+    </div>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        
+        <!-- Welcome Explanatory Header (Only show if at root) -->
+        {% if is_root %}
+        <section class="mb-10 p-6 sm:p-8 rounded-3xl glass-panel border border-zinc-800/80 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-red-600/10 rounded-full blur-3xl -z-10"></div>
+            
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-white mb-3">
+                Welcome to DriveFlix
+            </h1>
+            <p class="text-zinc-400 text-sm sm:text-base font-light leading-relaxed max-w-4xl">
+                Your private, cloud-powered cinema. DriveFlix securely interfaces with a private Google Drive repository via a custom backend proxy system. This architecture ensures high-speed, direct browser streaming with native seeking and scrubbing capabilities, without compromising cloud storage credentials.
+            </p>
+        </section>
+        {% endif %}
+
+        <!-- Breadcrumb Navigation Component -->
+        {% if breadcrumbs %}
+        <nav class="flex items-center space-x-2 text-xs sm:text-sm text-zinc-400 mb-8 overflow-x-auto pb-2 whitespace-nowrap scrollbar-none">
+            <a href="/" class="hover:text-red-500 transition-colors">Home</a>
+            {% for crumb in breadcrumbs %}
+                {% if not forloop.first %}
+                    <span class="text-zinc-600">/</span>
+                    {% if forloop.last %}
+                        <span class="text-red-500 font-semibold truncate max-w-[150px] sm:max-w-[300px]">{{ crumb.name }}</span>
+                    {% else %}
+                        <a href="{% url 'folder' crumb.folder_id %}" class="hover:text-white transition-colors truncate max-w-[150px] sm:max-w-[300px]">{{ crumb.name }}</a>
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+        </nav>
+        {% endif %}
+
+        <!-- Folder Name Context Header (Not root) -->
+        {% if not is_root and folder %}
+        <div class="mb-8">
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+                <svg class="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+                </svg>
+                {{ folder.name }}
+            </h2>
+        </div>
+        {% endif %}
+
+        <!-- Content Grid -->
+        <div id="content-container" class="space-y-12">
+            
+            <!-- Folder Cards Section -->
+            {% if subfolders %}
+            <div>
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-4">Folders</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                    {% for subfolder in subfolders %}
+                    <a href="{% url 'folder' subfolder.folder_id %}" class="group flex items-center p-4 sm:p-5 rounded-2xl glass-panel hover:border-zinc-700 transition-all duration-300 hover:shadow-xl hover:shadow-red-600/5 hover:-translate-y-1">
+                        <div class="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-red-600/10 group-hover:bg-red-600/20 flex items-center justify-center flex-shrink-0 text-red-500 transition-all duration-300">
+                            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm1 3a1 1 0 011-1h3.586l1.414 1.414A1 1 0 0012 8h3a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V8a1 1 0 011-1z" clip-rule="evenodd"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4 overflow-hidden min-w-0 w-full">
+                            <span class="block text-sm sm:text-base font-semibold text-white group-hover:text-red-500 transition-colors truncate break-words whitespace-normal" title="{{ subfolder.name }}">
+                                {{ subfolder.name }}
+                            </span>
+                            <span class="block text-[10px] sm:text-xs text-zinc-500 mt-0.5">
+                                {{ subfolder.subfolders.count }} folders, {{ subfolder.movies.count }} videos
+                            </span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Movie Cards Section -->
+            {% if movies %}
+            <div>
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-4">Videos</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+                    {% for movie in movies %}
+                    <div class="group relative rounded-2xl overflow-hidden glass-panel hover:border-zinc-800 hover:shadow-2xl hover:shadow-red-600/5 transition-all duration-300 flex flex-col hover:-translate-y-1.5">
+                        
+                        <!-- Video Thumbnail -->
+                        <div class="aspect-[16/10] w-full bg-zinc-950 relative overflow-hidden flex items-center justify-center border-b border-zinc-900/60">
+                            {% if movie.poster_link %}
+                                <img src="{{ movie.poster_link }}" alt="{{ movie.display_name }}" class="object-cover w-full h-full scale-100 group-hover:scale-105 transition-transform duration-700 ease-out">
+                            {% elif movie.thumbnail_link %}
+                                <img src="{{ movie.thumbnail_link }}" alt="{{ movie.display_name }}" class="object-cover w-full h-full scale-100 group-hover:scale-105 transition-transform duration-700 ease-out">
+                            {% else %}
+                                <div class="absolute inset-0 bg-gradient-to-tr from-zinc-950 via-zinc-900 to-red-950/20 flex items-center justify-center">
+                                    <div class="p-3 rounded-full bg-zinc-900/80 border border-zinc-800">
+                                        <svg class="w-6 h-6 sm:w-8 sm:h-8 text-zinc-500 group-hover:text-red-500 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                            {% endif %}
+                            
+                            <!-- Play button overlay -->
+                            <div class="absolute inset-0 bg-black/60 md:bg-black/70 opacity-100 md:opacity-0 md:group-hover:opacity-100 flex items-center justify-center transition-all duration-300">
+                                <a href="{% url 'player' movie.file_id %}" class="flex items-center justify-center h-12 w-12 sm:h-14 sm:w-14 bg-red-600 hover:bg-red-500 text-white rounded-full hover:scale-110 shadow-2xl transition-all duration-300 group/btn">
+                                    <svg class="w-5.5 h-5.5 sm:w-6 sm:h-6 fill-current translate-x-0.5" viewBox="0 0 24 24">
+                                        <path d="M8 5v14l11-7z"/>
+                                    </svg>
+                                </a>
+                            </div>
+
+                            <!-- "Continue Watching" progress bar overlay -->
+                            {% if movie.watch_progress_percentage > 0.0 %}
+                            <div class="absolute bottom-0 left-0 w-full h-1 bg-zinc-800">
+                                <div class="bg-red-600 h-full" style="width: {{ movie.watch_progress_percentage }}%;"></div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Title -->
+                        <div class="p-4 sm:p-6 flex-grow flex items-center w-full min-w-0">
+                            <h3 class="font-semibold text-white text-sm sm:text-base leading-snug group-hover:text-red-500 transition-colors duration-300 break-words whitespace-normal line-clamp-2 w-full" title="{{ movie.display_name }}">
+                                {{ movie.display_name }}
+                            </h3>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Empty State -->
+            {% if not subfolders and not movies %}
+            <div class="rounded-3xl border border-dashed border-zinc-800 p-8 sm:p-16 text-center glass-panel">
+                <svg class="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-zinc-700 mb-4 sm:mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                </svg>
+                <h3 class="text-lg sm:text-xl font-bold text-white mb-2">Your DriveFlix vault is currently empty</h3>
+                <p class="text-zinc-400 text-xs sm:text-sm max-w-md mx-auto mb-6">
+                    Run <code class="text-red-500 font-mono">python manage.py sync_movies</code> to index your Google Drive media assets.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full max-w-full mt-auto py-6 border-t border-zinc-800 text-sm text-zinc-400 flex flex-col md:flex-row justify-between items-center px-6 gap-4 bg-black">
+        <div class="flex flex-col sm:flex-row items-center gap-3 text-center md:text-left">
+            <span>© 2026 DriveFlix - Developed by Yug Khimani.</span>
+            <div class="flex items-center gap-2">
+                <!-- LinkedIn Button -->
+                <a href="https://www.linkedin.com/in/yug-khimani-330364282/" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 transition-colors" title="LinkedIn">
+                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                        <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+                    </svg>
+                </a>
+                <!-- GitHub Button -->
+                <a href="https://github.com/khimani-yug" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 transition-colors" title="GitHub">
+                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse"></span>
+                Server Status: Operational
+            </span>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/20">
+                <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                </svg>
+                Cloud Proxy: Secure
+            </span>
+        </div>
+    </footer>
+
+    <!-- JS Scripts -->
+    <script>
+        function toggleMobileSearch() {
+            const bar = document.getElementById('mobile-search-bar');
+            bar.classList.toggle('hidden');
+            if (!bar.classList.contains('hidden')) {
+                document.getElementById('search-input-mobile').focus();
+            }
+        }
+
+        async function performSearch(query, isMobile = false) {
+            const dropdownId = isMobile ? 'search-dropdown-mobile' : 'search-dropdown';
+            const dropdown = document.getElementById(dropdownId);
+
+            if (!query.trim()) {
+                dropdown.classList.add('hidden');
+                dropdown.innerHTML = '';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/search/?q=${encodeURIComponent(query)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    renderSearchResults(data, dropdown);
+                }
+            } catch (error) {
+                console.error('Error fetching search results:', error);
+            }
+        }
+
+        function renderSearchResults(data, dropdown) {
+            const hasFolders = data.folders && data.folders.length > 0;
+            const hasMovies = data.movies && data.movies.length > 0;
+
+            if (!hasFolders && !hasMovies) {
+                dropdown.innerHTML = `
+                    <div class="px-4 py-3 text-xs text-zinc-500 text-center">
+                        No results found
+                    </div>
+                `;
+                dropdown.classList.remove('hidden');
+                return;
+            }
+
+            let html = '';
+
+            if (hasFolders) {
+                html += `<div class="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Folders</div>`;
+                data.folders.forEach(f => {
+                    html += `
+                        <a href="/folder/${f.folder_id}/" class="flex items-center space-x-2 px-3 py-2 rounded-xl text-sm text-zinc-200 hover:text-white hover:bg-zinc-900 transition-colors">
+                            <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span class="truncate">${f.name}</span>
+                        </a>
+                    `;
+                });
+            }
+
+            if (hasFolders && hasMovies) {
+                html += `<div class="my-1 border-t border-zinc-900"></div>`;
+            }
+
+            if (hasMovies) {
+                html += `<div class="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Videos</div>`;
+                data.movies.forEach(m => {
+                    html += `
+                        <a href="/watch/${m.file_id}/" class="flex items-center space-x-2 px-3 py-2 rounded-xl text-sm text-zinc-200 hover:text-white hover:bg-zinc-900 transition-colors">
+                            <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span class="truncate">${m.name}</span>
+                        </a>
+                    `;
+                });
+            }
+
+            dropdown.innerHTML = html;
+            dropdown.classList.remove('hidden');
+        }
+
+        document.addEventListener('click', function(e) {
+            const searchInput = document.getElementById('search-input');
+            const searchDropdown = document.getElementById('search-dropdown');
+            const searchInputMobile = document.getElementById('search-input-mobile');
+            const searchDropdownMobile = document.getElementById('search-dropdown-mobile');
+
+            if (e.target !== searchInput && e.target !== searchDropdown) {
+                searchDropdown.classList.add('hidden');
+            }
+            if (e.target !== searchInputMobile && e.target !== searchDropdownMobile) {
+                searchDropdownMobile.classList.add('hidden');
+            }
+        });
+
+        async function syncMovies() {
+            const btn = document.getElementById('sync-btn');
+            const icon = document.getElementById('sync-icon');
+            const text = document.getElementById('sync-text');
+            const textMobile = document.getElementById('sync-text-mobile');
+            
+            btn.disabled = true;
+            btn.classList.add('opacity-70', 'cursor-not-allowed');
+            icon.classList.add('animate-spin');
+            if (text) text.textContent = 'Syncing...';
+            if (textMobile) textMobile.textContent = '...';
+
+            try {
+                const response = await fetch('/sync/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    const data = await response.json();
+                    alert('Sync failed: ' + (data.message || 'Unknown error'));
+                    resetBtn();
+                }
+            } catch (error) {
+                alert('Connection error occurred during sync.');
+                resetBtn();
+            }
+
+            function resetBtn() {
+                btn.disabled = false;
+                btn.classList.remove('opacity-70', 'cursor-not-allowed');
+                icon.classList.remove('animate-spin');
+                if (text) text.textContent = 'Sync Vault';
+                if (textMobile) textMobile.textContent = 'Sync';
+            }
+        }
+    </script>
+</body>
+</html>
