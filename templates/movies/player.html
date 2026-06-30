@@ -115,8 +115,48 @@
                     crossorigin="anonymous"
                 >
                     <source src="{% url 'stream' movie.file_id %}" type="{{ movie.mime_type }}">
+                    {% for track in subtitle_tracks %}
+                        <track 
+                            kind="subtitles" 
+                            src="{% url 'subtitles' track.id %}" 
+                            srclang="{{ track.srclang }}" 
+                            label="{{ track.label }}"
+                            {% if forloop.first %}default{% endif %}
+                        >
+                    {% endfor %}
                     Your browser does not support playing this content.
                 </video>
+
+                <!-- Next Episode Autoplay Countdown Overlay -->
+                {% if next_movie and is_series %}
+                <div id="autoplay-overlay" class="hidden absolute inset-0 bg-black/85 backdrop-filter backdrop-blur-md z-40 flex flex-col items-center justify-center text-white transition-opacity duration-300">
+                    <div class="text-center max-w-sm px-6">
+                        <span class="text-red-500 font-semibold tracking-wider text-[10px] sm:text-xs uppercase mb-2 block">Next Episode Playing in</span>
+                        <h3 class="text-lg sm:text-xl font-bold truncate mb-5 text-white" title="{{ next_movie.display_name }}">
+                            {{ next_movie.display_name }}
+                        </h3>
+                        
+                        <!-- Animated Circular Countdown SVG -->
+                        <div class="relative w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="40" stroke="#27272a" stroke-width="6" fill="transparent" />
+                                <circle id="countdown-circle" cx="50" cy="50" r="40" stroke="#e50914" stroke-width="6" fill="transparent"
+                                        stroke-dasharray="251.2" stroke-dashoffset="0" class="transition-all duration-1000 ease-linear" />
+                            </svg>
+                            <span id="countdown-text" class="absolute text-xl sm:text-2xl font-extrabold text-white">8</span>
+                        </div>
+
+                        <div class="flex items-center justify-center gap-3">
+                            <button onclick="cancelAutoplay()" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-colors text-slate-300 hover:text-white">
+                                Cancel
+                            </button>
+                            <a href="{% url 'player' next_movie.file_id %}" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-red-600 hover:bg-red-500 transition-colors text-white">
+                                Play Now
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
             <!-- Title Header & Actions -->
@@ -232,31 +272,89 @@
         player.on('ended', function() {
             saveVideoProgress(player.duration(), player.duration());
             {% if next_movie and is_series %}
-                window.location.href = "{% url 'player' next_movie.file_id %}";
+                // Show autoplay overlay
+                const overlay = document.getElementById('autoplay-overlay');
+                if (overlay) {
+                    overlay.classList.remove('hidden');
+                    
+                    let countdown = 8;
+                    const countdownText = document.getElementById('countdown-text');
+                    const circle = document.getElementById('countdown-circle');
+                    const totalDash = 251.2;
+                    
+                    if (countdownText) countdownText.innerText = countdown;
+                    if (circle) circle.style.strokeDashoffset = 0;
+                    
+                    window.autoplayTimer = setInterval(() => {
+                        countdown--;
+                        if (countdownText) countdownText.innerText = countdown;
+                        
+                        if (circle) {
+                            const offset = totalDash - (totalDash * (countdown / 8));
+                            circle.style.strokeDashoffset = offset;
+                        }
+                        
+                        if (countdown <= 0) {
+                            clearInterval(window.autoplayTimer);
+                            window.location.href = "{% url 'player' next_movie.file_id %}";
+                        }
+                    }, 1000);
+                }
             {% endif %}
         });
 
-        // Custom keyboard bindings overrides (Left/Right to skip 30 seconds instead of default 5 seconds)
+        function cancelAutoplay() {
+            if (window.autoplayTimer) {
+                clearInterval(window.autoplayTimer);
+            }
+            const overlay = document.getElementById('autoplay-overlay');
+            if (overlay) {
+                overlay.classList.add('hidden');
+            }
+        }
+
+        // Custom keyboard bindings overrides
         window.addEventListener('keydown', function(e) {
+            // Ignore keybinds if user is typing in any input field (just in case)
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+                return;
+            }
+
             const isLeft = e.key === 'ArrowLeft' || e.keyCode === 37;
             const isRight = e.key === 'ArrowRight' || e.keyCode === 39;
             const isSpace = e.key === ' ' || e.code === 'Space' || e.keyCode === 32;
+            const isUp = e.key === 'ArrowUp' || e.keyCode === 38;
+            const isDown = e.key === 'ArrowDown' || e.keyCode === 40;
+            const isF = e.key.toLowerCase() === 'f' || e.keyCode === 70;
+            const isM = e.key.toLowerCase() === 'm' || e.keyCode === 77;
 
-            if (isLeft || isRight || isSpace) {
+            if (isLeft || isRight || isSpace || isUp || isDown || isF || isM) {
                 e.preventDefault();
                 e.stopPropagation();
             }
 
             if (isLeft) {
-                player.currentTime(Math.max(0, player.currentTime() - 30));
+                player.currentTime(Math.max(0, player.currentTime() - 10)); // seek back 10s
             } else if (isRight) {
-                player.currentTime(Math.min(player.duration() || 0, player.currentTime() + 30));
+                player.currentTime(Math.min(player.duration() || 0, player.currentTime() + 10)); // seek forward 10s
             } else if (isSpace) {
                 if (player.paused()) {
                     player.play();
                 } else {
                     player.pause();
                 }
+            } else if (isUp) {
+                player.volume(Math.min(1.0, player.volume() + 0.1)); // volume up 10%
+            } else if (isDown) {
+                player.volume(Math.max(0.0, player.volume() - 0.1)); // volume down 10%
+            } else if (isF) {
+                if (player.isFullscreen()) {
+                    player.exitFullscreen();
+                } else {
+                    player.requestFullscreen();
+                }
+            } else if (isM) {
+                player.muted(!player.muted()); // toggle mute
             }
         }, true);
     </script>

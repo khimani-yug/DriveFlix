@@ -4,14 +4,43 @@ import json
 import requests
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import View
-from django.http import StreamingHttpResponse, Http404, JsonResponse
+from django.http import StreamingHttpResponse, Http404, JsonResponse, HttpResponse
 from django.conf import settings
 from django.core.management import call_command
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from django.core.cache import cache
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request as GoogleAuthRequest
+from googleapiclient.discovery import build
 from movies.models import Folder, Movie, VideoProgress
+
+def get_google_credentials():
+    client_email = os.getenv('GOOGLE_CLIENT_EMAIL', '')
+    private_key = os.getenv('GOOGLE_PRIVATE_KEY', '')
+    project_id = os.getenv('GOOGLE_PROJECT_ID', '')
+    creds_path = getattr(settings, 'GOOGLE_APPLICATION_CREDENTIALS', None)
+
+    if client_email and private_key:
+        formatted_key = private_key.replace('\\n', '\n').replace('"', '').strip()
+        creds_dict = {
+            "type": "service_account",
+            "project_id": project_id,
+            "private_key": formatted_key,
+            "client_email": client_email,
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }
+        return service_account.Credentials.from_service_account_info(
+            creds_dict,
+            scopes=['https://www.googleapis.com/auth/drive.readonly']
+        )
+    elif creds_path and os.path.exists(creds_path):
+        return service_account.Credentials.from_service_account_file(
+            creds_path,
+            scopes=['https://www.googleapis.com/auth/drive.readonly']
+        )
+    return None
+
 
 class FolderView(View):
     def get(self, request, folder_id=None, *args, **kwargs):
@@ -45,6 +74,21 @@ class FolderView(View):
         if not request.session.session_key:
             request.session.create()
         session_id = request.session.session_key
+        
+        recently_watched_movies = []
+        if is_root and session_id:
+            recent_progress = VideoProgress.objects.filter(
+                session_id=session_id,
+                current_time_seconds__gt=5.0
+            ).select_related('movie').order_by('-last_watched')[:12]
+            
+            for prog in recent_progress:
+                if prog.percentage < 95.0:
+                    m = prog.movie
+                    m.watch_progress_percentage = prog.percentage
+                    recently_watched_movies.append(m)
+            # Limit to 8 items after filtering
+            recently_watched_movies = recently_watched_movies[:8]
 
         progress_map = {}
         if session_id:
@@ -62,6 +106,7 @@ class FolderView(View):
             'movies': movies,
             'breadcrumbs': breadcrumbs,
             'is_root': is_root,
+            'recently_watched_movies': recently_watched_movies,
         })
 
 class PlayerView(View):
@@ -123,12 +168,54 @@ class PlayerView(View):
             if progress_obj:
                 saved_progress_seconds = progress_obj.current_time_seconds
 
+        # Dynamic subtitles lookup
+        subtitle_tracks = []
+        if movie.folder:
+            credentials = get_google_credentials()
+            if credentials:
+                try:
+                    service = build('drive', 'v3', credentials=credentials)
+                    query = f"'{movie.folder.folder_id}' in parents and trashed = false and (name contains '.srt' or name contains '.vtt' or mimeType = 'text/vtt')"
+                    response = service.files().list(q=query, spaces='drive', fields="files(id, name)").execute()
+                    files = response.get('files', [])
+                    
+                    clean_movie_name = os.path.splitext(movie.name)[0].lower()
+                    for f in files:
+                        fname = f.get('name', '')
+                        fid = f.get('id')
+                        fname_clean = os.path.splitext(fname)[0].lower()
+                        
+                        is_match = False
+                        if fname_clean == clean_movie_name:
+                            is_match = True
+                        elif clean_movie_name in fname_clean or fname_clean in clean_movie_name:
+                            is_match = True
+                        
+                        if is_match:
+                            label = "Subtitles"
+                            if ".eng" in fname.lower() or "english" in fname.lower():
+                                label = "English"
+                            elif ".spa" in fname.lower() or "spanish" in fname.lower():
+                                label = "Spanish"
+                            elif ".fre" in fname.lower() or "french" in fname.lower():
+                                label = "French"
+                            
+                            subtitle_tracks.append({
+                                'id': fid,
+                                'name': fname,
+                                'label': label,
+                                'srclang': label[:2].lower() if label != "Subtitles" else "en"
+                            })
+                except Exception:
+                    pass
+
         return render(request, 'movies/player.html', {
             'movie': movie,
             'breadcrumbs': breadcrumbs,
             'next_movie': next_movie,
             'is_series': is_series,
             'saved_progress_seconds': saved_progress_seconds,
+            'subtitle_tracks': subtitle_tracks,
         })
 
 class SyncMoviesView(View):
@@ -198,38 +285,81 @@ class UpdateProgressAPIView(View):
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+class MovieThumbnailView(View):
+    def get(self, request, file_id, *args, **kwargs):
+        # Check local storage first
+        media_dir = os.path.join(settings.MEDIA_ROOT, 'thumbnails')
+        local_path = os.path.join(media_dir, f"{file_id}.jpg")
+        
+        if os.path.exists(local_path):
+            try:
+                with open(local_path, 'rb') as f:
+                    return HttpResponse(f.read(), content_type="image/jpeg")
+            except Exception:
+                pass
+
+        movie = get_object_or_404(Movie, file_id=file_id)
+        
+        credentials = get_google_credentials()
+        if not credentials:
+            # Fallback: a nice dark SVG placeholder representing a video frame/movie reels
+            fallback_svg = (
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="100%" height="100%">'
+                '<rect width="100%" height="100%" fill="#09090b"/>'
+                '<path fill="#27272a" d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/>'
+                '</svg>'
+            )
+            return HttpResponse(fallback_svg, content_type="image/svg+xml")
+
+        try:
+            # 1. Fetch file metadata to get a fresh thumbnailLink
+            service = build('drive', 'v3', credentials=credentials)
+            file_meta = service.files().get(fileId=file_id, fields='thumbnailLink').execute()
+            thumbnail_url = file_meta.get('thumbnailLink')
+            
+            if thumbnail_url:
+                # 2. Retrieve image content from thumbnailLink
+                credentials.refresh(GoogleAuthRequest())
+                headers = {"Authorization": f"Bearer {credentials.token}"}
+                resp = requests.get(thumbnail_url, headers=headers, timeout=10)
+                if resp.status_code != 200:
+                    resp = requests.get(thumbnail_url, timeout=10)
+                
+                if resp.status_code == 200:
+                    image_data = resp.content
+                    
+                    # Save locally to avoid future network requests
+                    os.makedirs(media_dir, exist_ok=True)
+                    with open(local_path, 'wb') as f:
+                        f.write(image_data)
+                    
+                    # Update database with fresh link
+                    movie.thumbnail_link = thumbnail_url
+                    movie.save(update_fields=['thumbnail_link'])
+                    
+                    return HttpResponse(image_data, content_type="image/jpeg")
+        except Exception:
+            pass
+
+        # Fallback if fetching fails
+        fallback_svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="100%" height="100%">'
+            '<rect width="100%" height="100%" fill="#09090b"/>'
+            '<path fill="#27272a" d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/>'
+            '</svg>'
+        )
+        return HttpResponse(fallback_svg, content_type="image/svg+xml")
+
+
 class StreamView(View):
     def get(self, request, file_id, *args, **kwargs):
         movie = get_object_or_404(Movie, file_id=file_id)
-        # 1. Fetch credentials dynamically from split environment variables
-        client_email = os.getenv('GOOGLE_CLIENT_EMAIL', '')
-        private_key = os.getenv('GOOGLE_PRIVATE_KEY', '')
-        project_id = os.getenv('GOOGLE_PROJECT_ID', '')
-        creds_path = getattr(settings, 'GOOGLE_APPLICATION_CREDENTIALS', None)
+        
+        credentials = get_google_credentials()
+        if not credentials:
+            raise Http404("Google Application Credentials are not configured.")
         
         try:
-            if client_email and private_key:
-                # Decode newline escapes in the private key string
-                formatted_key = private_key.replace('\\n', '\n').replace('"', '').strip()
-                creds_dict = {
-                    "type": "service_account",
-                    "project_id": project_id,
-                    "private_key": formatted_key,
-                    "client_email": client_email,
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                }
-                credentials = service_account.Credentials.from_service_account_info(
-                    creds_dict,
-                    scopes=['https://www.googleapis.com/auth/drive.readonly']
-                )
-            elif creds_path and os.path.exists(creds_path):
-                credentials = service_account.Credentials.from_service_account_file(
-                    creds_path,
-                    scopes=['https://www.googleapis.com/auth/drive.readonly']
-                )
-            else:
-                raise Http404("Google Application Credentials are not configured.")
-                
             credentials.refresh(GoogleAuthRequest())
             access_token = credentials.token
         except Exception as e:
@@ -304,3 +434,52 @@ class StreamView(View):
         response['Expires'] = '0'
 
         return response
+
+
+class SubtitlesProxyView(View):
+    def get(self, request, subtitle_file_id, *args, **kwargs):
+        credentials = get_google_credentials()
+        if not credentials:
+            raise Http404("Google credentials not configured")
+        
+        try:
+            # Get the file name to check extension
+            service = build('drive', 'v3', credentials=credentials)
+            meta = service.files().get(fileId=subtitle_file_id, fields="name").execute()
+            name = meta.get('name', '')
+            
+            # Fetch the actual subtitle content
+            url = f"https://www.googleapis.com/drive/v3/files/{subtitle_file_id}?alt=media"
+            credentials.refresh(GoogleAuthRequest())
+            headers = {
+                "Authorization": f"Bearer {credentials.token}"
+            }
+            resp = requests.get(url, headers=headers, timeout=20)
+            if resp.status_code == 200:
+                content = resp.content
+                
+                # If it's an SRT file, we convert it to WebVTT on the fly
+                if name.lower().endswith('.srt'):
+                    try:
+                        try:
+                            srt_text = content.decode('utf-8')
+                        except UnicodeDecodeError:
+                            srt_text = content.decode('latin-1')
+                            
+                        # Basic SRT to VTT conversion:
+                        # 1. Prepend WEBVTT
+                        # 2. Replace comma (,) with dot (.) in timestamps
+                        vtt_text = "WEBVTT\n\n"
+                        vtt_text += re.sub(r'(\d{2}:\d{2}:\d{2}),(\d{3})', r'\1.\2', srt_text)
+                        
+                        return HttpResponse(vtt_text, content_type="text/vtt")
+                    except Exception:
+                        pass
+                
+                # If it's already VTT or fallback
+                return HttpResponse(content, content_type="text/vtt")
+        except Exception:
+            pass
+            
+        raise Http404("Subtitle file not found or failed to load")
+

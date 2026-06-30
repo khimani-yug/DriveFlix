@@ -28,4 +28,6 @@ staticfiles/
 *.ntvs*
 *.njsproj
 *.sln
-*.swp
+# Local media uploads and cached files
+media/
+

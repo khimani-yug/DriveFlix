@@ -133,4 +133,5 @@ if creds_env and not os.path.isabs(creds_env):
     GOOGLE_APPLICATION_CREDENTIALS = str(BASE_DIR / creds_env)
 else:
     GOOGLE_APPLICATION_CREDENTIALS = creds_env
-
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
