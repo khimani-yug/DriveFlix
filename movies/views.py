@@ -320,14 +320,19 @@ class SetSystemVolumeAPIView(View):
             volume_scalar = vol_val / 100.0
 
             # Native Core Audio API call via pycaw (runs in milliseconds without spawning processes)
+            import pythoncom
             from ctypes import cast, POINTER
             from comtypes import CLSCTX_ALL
             from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 
-            devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            volume = cast(interface, POINTER(IAudioEndpointVolume))
-            volume.SetMasterVolumeLevelScalar(volume_scalar, None)
+            pythoncom.CoInitialize()
+            try:
+                devices = AudioUtilities.GetSpeakers()
+                interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+                volume = cast(interface, POINTER(IAudioEndpointVolume))
+                volume.SetMasterVolumeLevelScalar(volume_scalar, None)
+            finally:
+                pythoncom.CoUninitialize()
 
             return JsonResponse({'status': 'success'})
         except Exception as e:
