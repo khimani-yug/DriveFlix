@@ -1,0 +1,26 @@
+{
+  "name": "movies",
+  "version": "1.0.0",
+  "description": "**DriveFlix** is a private, cloud-powered streaming portal built on Django. It securely interfaces with a private Google Drive repository via a custom backend proxy, serving nested directories recursively. Features include live AJAX search, real-time video progress tracking, and smooth HTML5 Video.js streaming with range-seeking.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/khimani-yug/DriveFlix.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/khimani-yug/DriveFlix/issues"
+  },
+  "homepage": "https://github.com/khimani-yug/DriveFlix#readme",
+  "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1"
+  }
+}

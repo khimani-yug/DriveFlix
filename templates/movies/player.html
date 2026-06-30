@@ -270,6 +270,9 @@
         </div>
     </footer>
 
+    <!-- Capacitor Core Library Bridge -->
+    <script src="https://unpkg.com/@capacitor/core@5/dist/index.js"></script>
+    
     <!-- Video.js Script Library -->
     <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
     <script>
@@ -335,8 +338,22 @@
             };
         }
 
+        const isNativeApp = window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform();
+
         // POST request to update Windows PC system hardware volume
         const syncHardwareVolume = debounce(async function(volumeVal) {
+            if (isNativeApp) {
+                try {
+                    const volumePlugin = window.Capacitor.Plugins.VolumeControl || window.Capacitor.Plugins.Volume;
+                    if (volumePlugin && (volumePlugin.setVolume || volumePlugin.set)) {
+                        const setFn = volumePlugin.setVolume || volumePlugin.set;
+                        await setFn({ volume: Math.min(1.0, volumeVal) });
+                    }
+                } catch (err) {
+                    console.log("Native volume plugin error:", err);
+                }
+                return;
+            }
             try {
                 // volumeVal is 0.0 to 2.0. Clamp system volume up to 1.0 (100%)
                 const percentage = Math.round(Math.min(1.0, volumeVal) * 100);
@@ -354,6 +371,18 @@
 
         // POST request to update Windows laptop screen hardware brightness
         const syncHardwareBrightness = debounce(async function(brightnessVal) {
+            if (isNativeApp) {
+                try {
+                    const brightnessPlugin = window.Capacitor.Plugins.ScreenBrightness;
+                    if (brightnessPlugin && (brightnessPlugin.setBrightness || brightnessPlugin.set)) {
+                        const setFn = brightnessPlugin.setBrightness || brightnessPlugin.set;
+                        await setFn({ brightness: brightnessVal });
+                    }
+                } catch (err) {
+                    console.log("Native brightness plugin error:", err);
+                }
+                return;
+            }
             try {
                 const percentage = Math.round(brightnessVal * 100);
                 await fetch('/api/system-brightness/update/', {
@@ -617,6 +646,9 @@
                 const emoji = isMuted ? icons.mute : (window.customVolume > 1.0 ? '⚠️' : icons.volume);
                 const text = isMuted ? 'Muted' : (window.customVolume > 1.0 ? `Volume Boost: ${volVal}%` : `${volVal}%`);
                 showStatusToast(emoji, text, Math.min(100, volVal));
+                
+                // Sync to Windows master hardware volume
+                syncHardwareVolume(window.customVolume);
             } catch (err) {
                 console.error("Volume toast error:", err);
             }
@@ -651,8 +683,8 @@
         let playerBrightness = 1.0; // Range: 0.0 (dark) to 1.0 (bright)
 
         playerEl.addEventListener('pointerdown', function(e) {
-            // Only allow on mobile/tablet viewports (screen width less than 1024px)
-            if (window.innerWidth >= 1024) {
+            // Only allow on mobile/tablet viewports (screen width less than 1024px) or native mobile app
+            if (window.innerWidth >= 1024 && !isNativeApp) {
                 return;
             }
 

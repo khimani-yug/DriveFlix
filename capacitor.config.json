@@ -1,0 +1,9 @@
+{
+  "appId": "com.driveflix.app",
+  "appName": "DriveFlix",
+  "webDir": "www",
+  "server": {
+    "url": "https://driveflix.onrender.com",
+    "cleartext": true
+  }
+}
