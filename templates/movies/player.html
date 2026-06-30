@@ -325,6 +325,49 @@
             }
         }
 
+        // Debounce helper to prevent flooding backend API requests during adjustments
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                const context = this;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), wait);
+            };
+        }
+
+        // POST request to update Windows PC system hardware volume
+        const syncHardwareVolume = debounce(async function(volumeVal) {
+            try {
+                // volumeVal is 0.0 to 2.0. Clamp system volume up to 1.0 (100%)
+                const percentage = Math.round(Math.min(1.0, volumeVal) * 100);
+                await fetch('/api/system-volume/update/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ volume: percentage })
+                });
+            } catch (err) {
+                console.error("Hardware volume sync error:", err);
+            }
+        }, 150);
+
+        // POST request to update Windows laptop screen hardware brightness
+        const syncHardwareBrightness = debounce(async function(brightnessVal) {
+            try {
+                const percentage = Math.round(brightnessVal * 100);
+                await fetch('/api/system-brightness/update/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ brightness: percentage })
+                });
+            } catch (err) {
+                console.error("Hardware brightness sync error:", err);
+            }
+        }, 150);
+
         // Initialize Video.js
         const player = videojs('video-player', {
             fluid: true,
@@ -670,6 +713,7 @@
                     const emoji = isMuted ? icons.mute : icons.volume;
                     showStatusToast(emoji, `${volVal}%`, volVal);
                 }
+                syncHardwareVolume(newVal);
             } else if (dragContext === 'brightness') {
                 const newVal = Math.min(1.0, Math.max(0.0, dragStartVal + change));
                 playerBrightness = newVal;
@@ -681,6 +725,7 @@
 
                 const brightnessPercentage = Math.round(newVal * 100);
                 showStatusToast('🔆', `Brightness: ${brightnessPercentage}%`, brightnessPercentage);
+                syncHardwareBrightness(newVal);
             }
         });
 
@@ -751,6 +796,7 @@
                             gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
                         }
                     }
+                    syncHardwareVolume(window.customVolume);
                 } catch (err) {}
             } else if (isDown) {
                 try {
@@ -769,6 +815,7 @@
                             gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
                         }
                     }
+                    syncHardwareVolume(window.customVolume);
                 } catch (err) {}
             } else if (isF) {
                 try {

@@ -13,4 +13,6 @@ urlpatterns = [
     path('api/progress/update/', views.UpdateProgressAPIView.as_view(), name='update_progress'),
     path('history/', views.WatchHistoryView.as_view(), name='watch_history'),
     path('history/clear/', views.ClearWatchHistoryView.as_view(), name='clear_watch_history'),
+    path('api/system-volume/update/', views.SetSystemVolumeAPIView.as_view(), name='set_system_volume'),
+    path('api/system-brightness/update/', views.SetSystemBrightnessAPIView.as_view(), name='set_system_brightness'),
 ]
