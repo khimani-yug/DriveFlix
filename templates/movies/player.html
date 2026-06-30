@@ -77,6 +77,10 @@
         .video-js .vjs-progress-control:hover .vjs-slider {
             height: 0.5em !important;
         }
+        /* Custom VLC-style Gestures touch override */
+        .video-js {
+            touch-action: none !important;
+        }
     </style>
 </head>
 <body class="min-h-full flex flex-col antialiased max-w-full overflow-x-hidden">
@@ -193,6 +197,9 @@
                         </div>
                     </div>
                 {% endif %}
+                <!-- Brightness Overlay Layer -->
+                <div id="brightness-overlay" class="absolute inset-0 bg-black pointer-events-none transition-opacity duration-150 z-[9990] opacity-0"></div>
+
                 <!-- Status Toast/Overlay (e.g. Volume, Skip) -->
                 <div id="player-status-toast" class="pointer-events-none absolute inset-0 flex items-center justify-center z-[9999] opacity-0 transition-opacity duration-300">
                     <div class="px-6 py-5 rounded-3xl bg-black/70 border border-zinc-800/60 backdrop-blur-lg flex flex-col items-center justify-center gap-3 shadow-2xl scale-90 transition-all duration-300 min-w-[140px]" id="toast-card">
@@ -341,6 +348,10 @@
             const autoplayOverlay = document.getElementById('autoplay-overlay');
             if (autoplayOverlay) {
                 player.el().appendChild(autoplayOverlay);
+            }
+            const brightnessOverlay = document.getElementById('brightness-overlay');
+            if (brightnessOverlay) {
+                player.el().appendChild(brightnessOverlay);
             }
         });
 
@@ -586,6 +597,104 @@
                 console.error("Fullscreen change handling error:", err);
             }
         });
+
+        // VLC-style Vertical Swipe Gestures (Left 50% Volume/Volume Boost, Right 50% Screen Brightness)
+        const playerEl = player.el();
+        let isPointerDragging = false;
+        let dragContext = null; // 'volume' or 'brightness'
+        let dragStartY = 0;
+        let dragStartVal = 0;
+        const dragSensitivity = 200; // Drag sensitivity in pixels
+        let playerBrightness = 1.0; // Range: 0.0 (dark) to 1.0 (bright)
+
+        playerEl.addEventListener('pointerdown', function(e) {
+            // Ignore gestures on controls, overlay buttons, and menus to prevent conflicts
+            if (e.target.closest('.vjs-control-bar') || e.target.closest('#autoplay-overlay') || e.target.closest('#player-status-toast')) {
+                return;
+            }
+            isPointerDragging = true;
+            try {
+                playerEl.setPointerCapture(e.pointerId);
+            } catch (err) {}
+
+            const rect = playerEl.getBoundingClientRect();
+            const pointerX = e.clientX - rect.left;
+            dragStartY = e.clientY;
+
+            if (pointerX < rect.width / 2) {
+                dragContext = 'volume';
+                dragStartVal = window.customVolume;
+            } else {
+                dragContext = 'brightness';
+                dragStartVal = playerBrightness;
+            }
+
+            // Flash toast immediately on touch/click start
+            if (dragContext === 'volume') {
+                const volVal = Math.round(dragStartVal * 100);
+                const isMuted = player.muted() || volVal === 0;
+                const emoji = isMuted ? icons.mute : (dragStartVal > 1.0 ? '⚠️' : icons.volume);
+                const text = isMuted ? 'Muted' : (dragStartVal > 1.0 ? `Volume Boost: ${volVal}%` : `${volVal}%`);
+                showStatusToast(emoji, text, Math.min(100, volVal));
+            } else {
+                const brightnessPercentage = Math.round(dragStartVal * 100);
+                showStatusToast('🔆', `Brightness: ${brightnessPercentage}%`, brightnessPercentage);
+            }
+        });
+
+        playerEl.addEventListener('pointermove', function(e) {
+            if (!isPointerDragging) return;
+
+            const deltaY = dragStartY - e.clientY; // Swiping UP gives positive deltaY
+            const change = deltaY / dragSensitivity;
+
+            if (dragContext === 'volume') {
+                initAudioBoost();
+                const newVal = Math.min(2.0, Math.max(0.0, dragStartVal + change));
+                window.customVolume = newVal;
+
+                if (newVal > 1.0) {
+                    player.volume(1.0);
+                    if (gainNode) {
+                        gainNode.gain.setValueAtTime(newVal, audioCtx.currentTime);
+                    }
+                    const volVal = Math.round(newVal * 100);
+                    showStatusToast('⚠️', `Volume Boost: ${volVal}%`, 100);
+                } else {
+                    player.volume(newVal);
+                    if (gainNode) {
+                        gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
+                    }
+                    const volVal = Math.round(newVal * 100);
+                    const isMuted = player.muted() || volVal === 0;
+                    const emoji = isMuted ? icons.mute : icons.volume;
+                    showStatusToast(emoji, `${volVal}%`, volVal);
+                }
+            } else if (dragContext === 'brightness') {
+                const newVal = Math.min(1.0, Math.max(0.0, dragStartVal + change));
+                playerBrightness = newVal;
+
+                const overlay = document.getElementById('brightness-overlay');
+                if (overlay) {
+                    overlay.style.opacity = (1 - newVal).toFixed(2);
+                }
+
+                const brightnessPercentage = Math.round(newVal * 100);
+                showStatusToast('🔆', `Brightness: ${brightnessPercentage}%`, brightnessPercentage);
+            }
+        });
+
+        const handlePointerEnd = function(e) {
+            if (!isPointerDragging) return;
+            isPointerDragging = false;
+            dragContext = null;
+            try {
+                playerEl.releasePointerCapture(e.pointerId);
+            } catch (err) {}
+        };
+
+        playerEl.addEventListener('pointerup', handlePointerEnd);
+        playerEl.addEventListener('pointercancel', handlePointerEnd);
 
         // Custom keyboard bindings overrides
         window.addEventListener('keydown', function(e) {
