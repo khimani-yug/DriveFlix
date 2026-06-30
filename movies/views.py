@@ -418,10 +418,15 @@ class StreamView(View):
             finally:
                 response.close()
 
+        # Spoof MIME type to video/mp4 for browser compatibility (e.g. MKV, AVI, MOV)
+        content_type = movie.mime_type
+        if content_type.startswith('video/') and content_type not in ['video/mp4', 'video/webm', 'video/ogg']:
+            content_type = 'video/mp4'
+
         response = StreamingHttpResponse(
             file_iterator(drive_response),
             status=status_code,
-            content_type=movie.mime_type
+            content_type=content_type
         )
         
         response['Accept-Ranges'] = 'bytes'
