@@ -313,46 +313,22 @@ class ClearWatchHistoryView(View):
 @method_decorator(csrf_exempt, name='dispatch')
 class SetSystemVolumeAPIView(View):
     def post(self, request, *args, **kwargs):
-        import subprocess
         try:
             data = json.loads(request.body)
             vol_val = float(data.get('volume', 100)) # 0 to 100
             vol_val = min(100.0, max(0.0, vol_val))
             volume_scalar = vol_val / 100.0
-            
-            ps_script = r"""
-$AudioCode = @'
-using System.Runtime.InteropServices;
-[Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-interface IAudioEndpointVolume {
-    int f(); int g(); int h(); int i();
-    int SetMasterVolumeLevelScalar(float fLevel, System.Guid pguidEventContext);
-    int j(); int GetMasterVolumeLevelScalar(out float pfLevel);
-    int k(); int l(); int m(); int n();
-    int SetMute([MarshalAs(UnmanagedType.Bool)] bool bMute, System.Guid pguidEventContext);
-    int GetMute(out bool pbMute);
-}
-[Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-interface IMMDevice { int Activate(ref System.Guid id, int clsCtx, int activationParams, out IAudioEndpointVolume aev); }
-[Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-interface IMMDeviceEnumerator { int f(); int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint); }
-[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumeratorComObject { }
-public class Audio {
-    static IAudioEndpointVolume Vol() {
-        var enumerator = new MMDeviceEnumeratorComObject() as IMMDeviceEnumerator;
-        IMMDevice dev = null;
-        Marshal.ThrowExceptionForHR(enumerator.GetDefaultAudioEndpoint(0, 1, out dev));
-        IAudioEndpointVolume epv = null;
-        var epvid = typeof(IAudioEndpointVolume).GUID;
-        Marshal.ThrowExceptionForHR(dev.Activate(ref epvid, 23, 0, out epv));
-        return epv;
-    }
-    public static float Volume { set { Marshal.ThrowExceptionForHR(Vol().SetMasterVolumeLevelScalar(value, System.Guid.Empty)); } }
-}
-'@
-Add-Type -TypeDefinition $AudioCode -ErrorAction SilentlyContinue
-[Audio]::Volume = """ + str(volume_scalar) + "\n"
-            subprocess.run(["powershell", "-Command", ps_script], capture_output=True, creationflags=0x08000000)
+
+            # Native Core Audio API call via pycaw (runs in milliseconds without spawning processes)
+            from ctypes import cast, POINTER
+            from comtypes import CLSCTX_ALL
+            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+
+            devices = AudioUtilities.GetSpeakers()
+            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+            volume = cast(interface, POINTER(IAudioEndpointVolume))
+            volume.SetMasterVolumeLevelScalar(volume_scalar, None)
+
             return JsonResponse({'status': 'success'})
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -360,20 +336,15 @@ Add-Type -TypeDefinition $AudioCode -ErrorAction SilentlyContinue
 @method_decorator(csrf_exempt, name='dispatch')
 class SetSystemBrightnessAPIView(View):
     def post(self, request, *args, **kwargs):
-        import subprocess
         try:
             data = json.loads(request.body)
             bright_val = int(data.get('brightness', 100)) # 0 to 100
             bright_val = min(100, max(0, bright_val))
-            
-            ps_script = r"""
-$brightness = """ + str(bright_val) + r"""
-$m = Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods -ErrorAction SilentlyContinue
-if ($m) {
-    Invoke-CimMethod -InputObject $m -MethodName WmiSetBrightness -Arguments @{Brightness = $brightness; Timeout = 1}
-}
-"""
-            subprocess.run(["powershell", "-Command", ps_script], capture_output=True, creationflags=0x08000000)
+
+            # Native screen brightness control via screen-brightness-control library
+            import screen_brightness_control as sbc
+            sbc.set_brightness(bright_val)
+
             return JsonResponse({'status': 'success'})
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

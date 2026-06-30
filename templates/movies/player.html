@@ -350,7 +350,7 @@
             } catch (err) {
                 console.error("Hardware volume sync error:", err);
             }
-        }, 150);
+        }, 20);
 
         // POST request to update Windows laptop screen hardware brightness
         const syncHardwareBrightness = debounce(async function(brightnessVal) {
@@ -366,7 +366,7 @@
             } catch (err) {
                 console.error("Hardware brightness sync error:", err);
             }
-        }, 150);
+        }, 20);
 
         // Initialize Video.js
         const player = videojs('video-player', {
