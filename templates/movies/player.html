@@ -77,8 +77,8 @@
         .video-js .vjs-progress-control:hover .vjs-slider {
             height: 0.5em !important;
         }
-        /* Custom VLC-style Gestures touch override */
-        .video-js {
+        /* Custom VLC-style Gestures touch override to lock screen scrolling */
+        .video-js, .video-js *, .aspect-video, .aspect-video * {
             touch-action: none !important;
         }
     </style>
@@ -651,6 +651,11 @@
         let playerBrightness = 1.0; // Range: 0.0 (dark) to 1.0 (bright)
 
         playerEl.addEventListener('pointerdown', function(e) {
+            // Only allow on mobile/tablet viewports (screen width less than 1024px)
+            if (window.innerWidth >= 1024) {
+                return;
+            }
+
             // Ignore gestures on controls, overlay buttons, and menus to prevent conflicts
             if (e.target.closest('.vjs-control-bar') || e.target.closest('#autoplay-overlay') || e.target.closest('#player-status-toast')) {
                 return;
@@ -688,8 +693,9 @@
         playerEl.addEventListener('pointermove', function(e) {
             if (!isPointerDragging) return;
 
+            const rect = playerEl.getBoundingClientRect();
             const deltaY = dragStartY - e.clientY; // Swiping UP gives positive deltaY
-            const change = deltaY / dragSensitivity;
+            const change = (deltaY / Math.max(100, rect.height)) * 1.5; // Scale relative to height with a comfortable speed factor
 
             if (dragContext === 'volume') {
                 initAudioBoost();

@@ -321,15 +321,12 @@ class SetSystemVolumeAPIView(View):
 
             # Native Core Audio API call via pycaw (runs in milliseconds without spawning processes)
             import pythoncom
-            from ctypes import cast, POINTER
-            from comtypes import CLSCTX_ALL
-            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+            from pycaw.pycaw import AudioUtilities
 
             pythoncom.CoInitialize()
             try:
                 devices = AudioUtilities.GetSpeakers()
-                interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-                volume = cast(interface, POINTER(IAudioEndpointVolume))
+                volume = devices.EndpointVolume
                 volume.SetMasterVolumeLevelScalar(volume_scalar, None)
             finally:
                 pythoncom.CoUninitialize()
@@ -506,6 +503,11 @@ class StreamView(View):
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response['Pragma'] = 'no-cache'
         response['Expires'] = '0'
+
+        # Enable CORS for Web Audio API audio boost processing compatibility
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Range, Authorization, Content-Type'
 
         return response
 
