@@ -162,11 +162,15 @@
                 </div>
                 <!-- Status Toast/Overlay (e.g. Volume, Skip) -->
                 <div id="player-status-toast" class="pointer-events-none absolute inset-0 flex items-center justify-center z-30 opacity-0 transition-opacity duration-300">
-                    <div class="px-5 py-3 rounded-2xl bg-black/75 border border-zinc-800/80 backdrop-blur-md flex flex-col items-center justify-center gap-1.5 shadow-2xl scale-95 transition-transform duration-300" id="toast-card">
+                    <div class="px-5 py-3.5 rounded-2xl bg-black/75 border border-zinc-800/80 backdrop-blur-md flex flex-col items-center justify-center gap-2 shadow-2xl scale-95 transition-transform duration-300 min-w-[125px]" id="toast-card">
                         <!-- Icon container -->
                         <div id="toast-icon-container" class="text-white"></div>
                         <!-- Text -->
                         <span id="toast-text" class="text-xs sm:text-sm font-semibold tracking-wide text-white"></span>
+                        <!-- Mini progress bar -->
+                        <div id="toast-bar-container" class="hidden w-20 h-1 bg-zinc-800 rounded-full overflow-hidden mt-1">
+                            <div id="toast-bar-fill" class="h-full bg-red-600 w-0 transition-all duration-150"></div>
+                        </div>
                     </div>
                 </div>
                 {% endif %}
@@ -336,11 +340,13 @@
             fullscreen: '<svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15"/></svg>'
         };
 
-        function showStatusToast(iconHtml, text) {
+        function showStatusToast(iconHtml, text, percentage = null) {
             const toast = document.getElementById('player-status-toast');
             const card = document.getElementById('toast-card');
             const iconContainer = document.getElementById('toast-icon-container');
             const textElement = document.getElementById('toast-text');
+            const barContainer = document.getElementById('toast-bar-container');
+            const barFill = document.getElementById('toast-bar-fill');
 
             if (!toast || !card) return;
 
@@ -350,6 +356,13 @@
 
             iconContainer.innerHTML = iconHtml;
             textElement.innerText = text;
+
+            if (percentage !== null) {
+                barContainer.classList.remove('hidden');
+                barFill.style.width = `${percentage}%`;
+            } else {
+                barContainer.classList.add('hidden');
+            }
 
             toast.classList.remove('opacity-0');
             toast.classList.add('opacity-100');
@@ -362,6 +375,37 @@
                 card.classList.remove('scale-100');
                 card.classList.add('scale-95');
             }, 800);
+        }
+
+        window.accumulatedSkip = 0;
+        window.skipDirection = null;
+
+        function handleSkip(direction) {
+            const skipInterval = 10;
+            
+            if (window.skipDirection !== direction) {
+                window.accumulatedSkip = skipInterval;
+                window.skipDirection = direction;
+            } else {
+                window.accumulatedSkip += skipInterval;
+            }
+            
+            if (direction === 'forward') {
+                player.currentTime(Math.min(player.duration() || 0, player.currentTime() + skipInterval));
+                showStatusToast(icons.forward, `+${window.accumulatedSkip}s`);
+            } else {
+                player.currentTime(Math.max(0, player.currentTime() - skipInterval));
+                showStatusToast(icons.backward, `-${window.accumulatedSkip}s`);
+            }
+            
+            if (window.skipTimeout) {
+                clearTimeout(window.skipTimeout);
+            }
+            window.skipTimeout = setTimeout(() => {
+                window.accumulatedSkip = 0;
+                window.skipDirection = null;
+                window.skipTimeout = null;
+            }, 1000);
         }
 
         // Custom keyboard bindings overrides
@@ -385,11 +429,9 @@
             }
 
             if (isLeft) {
-                player.currentTime(Math.max(0, player.currentTime() - 10)); // seek back 10s
-                showStatusToast(icons.backward, "-10s");
+                handleSkip('backward');
             } else if (isRight) {
-                player.currentTime(Math.min(player.duration() || 0, player.currentTime() + 10)); // seek forward 10s
-                showStatusToast(icons.forward, "+10s");
+                handleSkip('forward');
             } else if (isSpace) {
                 if (player.paused()) {
                     player.play();
@@ -400,10 +442,12 @@
                 }
             } else if (isUp) {
                 player.volume(Math.min(1.0, player.volume() + 0.1)); // volume up 10%
-                showStatusToast(icons.volume, "Volume " + Math.round(player.volume() * 100) + "%");
+                const volVal = Math.round(player.volume() * 100);
+                showStatusToast(icons.volume, "Volume: " + volVal + " / 100", volVal);
             } else if (isDown) {
                 player.volume(Math.max(0.0, player.volume() - 0.1)); // volume down 10%
-                showStatusToast(icons.volume, "Volume " + Math.round(player.volume() * 100) + "%");
+                const volVal = Math.round(player.volume() * 100);
+                showStatusToast(icons.volume, "Volume: " + volVal + " / 100", volVal);
             } else if (isF) {
                 if (player.isFullscreen()) {
                     player.exitFullscreen();
@@ -413,7 +457,8 @@
                 }
             } else if (isM) {
                 player.muted(!player.muted()); // toggle mute
-                showStatusToast(player.muted() ? icons.mute : icons.volume, player.muted() ? "Muted" : "Unmuted");
+                const volVal = player.muted() ? 0 : Math.round(player.volume() * 100);
+                showStatusToast(player.muted() ? icons.mute : icons.volume, player.muted() ? "Muted" : "Volume: " + volVal + " / 100", volVal);
             }
         }, true);
     </script>
