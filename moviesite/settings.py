@@ -67,11 +67,26 @@ WSGI_APPLICATION = 'moviesite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-if os.getenv('DATABASE_URL'):
+import socket
+import urllib.parse
+
+db_url = os.getenv('DATABASE_URL')
+db_resolved = True
+if db_url:
+    try:
+        parsed = urllib.parse.urlparse(db_url)
+        if parsed.hostname:
+            # Check if database host name can be resolved (verifies internet connection/DNS status)
+            socket.gethostbyname(parsed.hostname)
+    except (socket.gaierror, Exception):
+        db_resolved = False
+
+if db_url and db_resolved:
     DATABASES = {
         'default': dj_database_url.config(conn_max_age=600, ssl_require=True)
     }
 else:
+    # Fallback to local SQLite when offline or cloud database host is unreachable
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',

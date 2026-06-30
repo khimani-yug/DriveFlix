@@ -3,7 +3,7 @@
   "appName": "DriveFlix",
   "webDir": "www",
   "server": {
-    "url": "https://driveflix.onrender.com",
+    "url": "https://driveflix.onrender.com/",
     "cleartext": true
   }
 }
