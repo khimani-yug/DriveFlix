@@ -246,12 +246,22 @@
             }
         });
 
-        // Restore Progress
-        if (savedProgress > 0) {
-            player.ready(function() {
+        // Restore Progress & Move Overlays
+        player.ready(function() {
+            if (savedProgress > 0) {
                 player.currentTime(savedProgress);
-            });
-        }
+            }
+            
+            // Move overlays inside Video.js container so they are visible in fullscreen
+            const toast = document.getElementById('player-status-toast');
+            if (toast) {
+                player.el().appendChild(toast);
+            }
+            const autoplayOverlay = document.getElementById('autoplay-overlay');
+            if (autoplayOverlay) {
+                player.el().appendChild(autoplayOverlay);
+            }
+        });
 
         // Save progress every 5 seconds
         let lastSavedTime = 0;
