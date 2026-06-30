@@ -313,6 +313,10 @@ class ClearWatchHistoryView(View):
 @method_decorator(csrf_exempt, name='dispatch')
 class SetSystemVolumeAPIView(View):
     def post(self, request, *args, **kwargs):
+        import sys
+        if sys.platform != 'win32':
+            # Gracefully handle non-Windows cloud servers (like Render Linux)
+            return JsonResponse({'status': 'success'})
         try:
             data = json.loads(request.body)
             vol_val = float(data.get('volume', 100)) # 0 to 100
@@ -338,6 +342,10 @@ class SetSystemVolumeAPIView(View):
 @method_decorator(csrf_exempt, name='dispatch')
 class SetSystemBrightnessAPIView(View):
     def post(self, request, *args, **kwargs):
+        import sys
+        if sys.platform != 'win32':
+            # Gracefully handle non-Windows cloud servers (like Render Linux)
+            return JsonResponse({'status': 'success'})
         try:
             data = json.loads(request.body)
             bright_val = int(data.get('brightness', 100)) # 0 to 100
