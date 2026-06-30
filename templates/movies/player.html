@@ -568,6 +568,25 @@
             }
         });
 
+        // Auto-rotate screen to landscape on fullscreen entry (mobile devices)
+        player.on('fullscreenchange', function() {
+            try {
+                if (player.isFullscreen()) {
+                    if (screen.orientation && screen.orientation.lock) {
+                        screen.orientation.lock('landscape').catch(function(error) {
+                            console.log("Orientation lock failed/not supported:", error);
+                        });
+                    }
+                } else {
+                    if (screen.orientation && screen.orientation.unlock) {
+                        screen.orientation.unlock();
+                    }
+                }
+            } catch (err) {
+                console.error("Fullscreen change handling error:", err);
+            }
+        });
+
         // Custom keyboard bindings overrides
         window.addEventListener('keydown', function(e) {
             // Ignore keybinds if user is typing in any input field
