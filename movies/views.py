@@ -285,6 +285,31 @@ class UpdateProgressAPIView(View):
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+class WatchHistoryView(View):
+    def get(self, request, *args, **kwargs):
+        if not request.session.session_key:
+            request.session.create()
+        session_id = request.session.session_key
+        
+        # Fetch watch history records for current session
+        history_records = VideoProgress.objects.filter(session_id=session_id).order_by('-last_watched')
+        
+        return render(request, 'movies/history.html', {
+            'history_records': history_records
+        })
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ClearWatchHistoryView(View):
+    def post(self, request, *args, **kwargs):
+        if not request.session.session_key:
+            return JsonResponse({'status': 'success'})
+        session_id = request.session.session_key
+        
+        # Delete all watch history for current session
+        VideoProgress.objects.filter(session_id=session_id).delete()
+        
+        return JsonResponse({'status': 'success'})
+
 class MovieThumbnailView(View):
     def get(self, request, file_id, *args, **kwargs):
         # Check local storage first

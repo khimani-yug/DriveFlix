@@ -25,34 +25,57 @@
         .red-brand-gradient {
             background: linear-gradient(135deg, #e50914 0%, #b81d24 100%);
         }
-        /* Custom Video.js Skin Overrides for Premium Red Styling */
+        /* Custom Video.js Skin Overrides for Netflix-style Premium Red Styling */
         .video-js {
             width: 100% !important;
             height: 100% !important;
             background-color: #000;
         }
         .video-js .vjs-big-play-button {
-            background-color: rgba(229, 9, 20, 0.8) !important;
-            border-color: #e50914 !important;
+            background-color: rgba(0, 0, 0, 0.6) !important;
+            border: 2px solid rgba(255, 255, 255, 0.8) !important;
             border-radius: 50% !important;
-            width: 2.5em !important;
-            height: 2.5em !important;
-            line-height: 2.5em !important;
-            margin-left: -1.25em !important;
-            margin-top: -1.25em !important;
-            box-shadow: 0 10px 25px rgba(229, 9, 20, 0.3);
+            width: 2.2em !important;
+            height: 2.2em !important;
+            line-height: 2.2em !important;
+            margin-left: -1.1em !important;
+            margin-top: -1.1em !important;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
-        .video-js:hover .vjs-big-play-button, .video-js .vjs-big-play-button:focus {
+        .video-js:hover .vjs-big-play-button {
             background-color: #e50914 !important;
-            transform: scale(1.05);
-            transition: all 0.2s ease;
+            border-color: #e50914 !important;
+            transform: scale(1.1) !important;
+            box-shadow: 0 0 30px rgba(229, 9, 20, 0.6);
         }
         .video-js .vjs-play-progress, .video-js .vjs-volume-level {
             background-color: #e50914 !important;
         }
+        .video-js .vjs-play-progress::before {
+            color: #e50914 !important;
+            font-size: 1.1em !important;
+        }
         .video-js .vjs-control-bar {
-            background-color: rgba(10, 10, 10, 0.85) !important;
-            backdrop-filter: blur(8px);
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.4) 60%, rgba(0, 0, 0, 0) 100%) !important;
+            height: 4.5em !important;
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+        .video-js .vjs-button {
+            transition: transform 0.15s ease, color 0.15s ease;
+        }
+        .video-js .vjs-button:hover {
+            color: #e50914 !important;
+            transform: scale(1.15);
+        }
+        .video-js .vjs-slider {
+            background-color: rgba(255, 255, 255, 0.25) !important;
+            height: 0.3em !important;
+            transition: height 0.15s ease;
+        }
+        .video-js .vjs-progress-control:hover .vjs-slider {
+            height: 0.5em !important;
         }
     </style>
 </head>
@@ -83,6 +106,8 @@
                 <nav class="flex items-center space-x-2 text-xs sm:text-sm text-zinc-400">
                     <span class="text-zinc-600">|</span>
                     <a href="/" class="hover:text-red-500 transition-colors">Home</a>
+                    <span class="text-zinc-600">|</span>
+                    <a href="{% url 'watch_history' %}" class="hover:text-red-500 transition-colors">History</a>
                     {% for crumb in breadcrumbs %}
                         {% if not forloop.first %}
                             <span class="text-zinc-600">/</span>
@@ -94,9 +119,17 @@
                 </nav>
             </div>
 
-            <span class="text-[10px] sm:text-xs text-red-500 font-semibold tracking-wider uppercase px-2.5 py-1 rounded-full bg-red-600/10 border border-red-600/20 flex-shrink-0">
-                Theater Mode
-            </span>
+            <div class="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+                <button onclick="togglePiP()" class="inline-flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-slate-200 hover:text-white border border-zinc-800 transition-all duration-200" title="Picture-in-Picture">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25M19.5 3H4.5A1.5 1.5 0 003 4.5v10.5a1.5 1.5 0 001.5 1.5h15a1.5 1.5 0 001.5-1.5V4.5A1.5 1.5 0 0019.5 3z"></path>
+                    </svg>
+                    <span>PiP Mode</span>
+                </button>
+                <span class="text-[10px] sm:text-xs text-red-500 font-semibold tracking-wider uppercase px-2.5 py-1 rounded-full bg-red-600/10 border border-red-600/20 flex-shrink-0">
+                    Theater Mode
+                </span>
+            </div>
         </div>
     </header>
 
@@ -159,21 +192,20 @@
                             </a>
                         </div>
                     </div>
-                </div>
+                {% endif %}
                 <!-- Status Toast/Overlay (e.g. Volume, Skip) -->
-                <div id="player-status-toast" class="pointer-events-none absolute inset-0 flex items-center justify-center z-30 opacity-0 transition-opacity duration-300">
-                    <div class="px-5 py-3.5 rounded-2xl bg-black/75 border border-zinc-800/80 backdrop-blur-md flex flex-col items-center justify-center gap-2 shadow-2xl scale-95 transition-transform duration-300 min-w-[125px]" id="toast-card">
+                <div id="player-status-toast" class="pointer-events-none absolute inset-0 flex items-center justify-center z-[9999] opacity-0 transition-opacity duration-300">
+                    <div class="px-6 py-5 rounded-3xl bg-black/70 border border-zinc-800/60 backdrop-blur-lg flex flex-col items-center justify-center gap-3 shadow-2xl scale-90 transition-all duration-300 min-w-[140px]" id="toast-card">
                         <!-- Icon container -->
-                        <div id="toast-icon-container" class="text-white"></div>
+                        <div id="toast-icon-container" class="text-4xl sm:text-5xl select-none"></div>
                         <!-- Text -->
-                        <span id="toast-text" class="text-xs sm:text-sm font-semibold tracking-wide text-white"></span>
+                        <span id="toast-text" class="text-sm sm:text-base font-bold tracking-wider text-white"></span>
                         <!-- Mini progress bar -->
-                        <div id="toast-bar-container" class="hidden w-20 h-1 bg-zinc-800 rounded-full overflow-hidden mt-1">
+                        <div id="toast-bar-container" class="hidden w-24 h-1.5 bg-zinc-800 rounded-full overflow-hidden mt-1">
                             <div id="toast-bar-fill" class="h-full bg-red-600 w-0 transition-all duration-150"></div>
                         </div>
                     </div>
                 </div>
-                {% endif %}
             </div>
 
             <!-- Title Header & Actions -->
@@ -237,12 +269,61 @@
         const fileId = "{{ movie.file_id }}";
         const savedProgress = parseFloat("{{ saved_progress_seconds|default:0 }}");
 
+        // Web Audio API context & nodes for Volume Boost
+        let audioCtx = null;
+        let gainNode = null;
+        let sourceNode = null;
+
+        function initAudioBoost() {
+            if (audioCtx) {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                return;
+            }
+            try {
+                const videoEl = player.el().querySelector('video');
+                if (!videoEl) return;
+                
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                gainNode = audioCtx.createGain();
+                sourceNode = audioCtx.createMediaElementSource(videoEl);
+                
+                sourceNode.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
+            } catch (err) {
+                console.error("Failed to initialize Web Audio context:", err);
+            }
+        }
+
+        async function togglePiP() {
+            try {
+                const videoEl = player.el().querySelector('video');
+                if (!videoEl) return;
+                
+                if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture();
+                    showStatusToast(icons.fullscreen, "Exit PiP");
+                } else if (document.pictureInPictureEnabled) {
+                    await videoEl.requestPictureInPicture();
+                    showStatusToast(icons.fullscreen, "Picture-in-Picture");
+                } else {
+                    showStatusToast('❌', "PiP Not Supported");
+                }
+            } catch (err) {
+                console.error("PiP error:", err);
+                showStatusToast('❌', "PiP Not Supported");
+            }
+        }
+
         // Initialize Video.js
         const player = videojs('video-player', {
             fluid: true,
             playbackRates: [0.5, 1, 1.25, 1.5, 2],
             userActions: {
-                hotkeys: true // Enables spacebar and arrow key binds built-in (Space toggles, Arrows skip 5s)
+                hotkeys: false // Disable built-in hotkeys so they don't block our custom overlay key binds
             }
         });
 
@@ -263,14 +344,46 @@
             }
         });
 
-        // Save progress every 5 seconds
+        // Save progress every 5 seconds & track lastTime for mouse seeking detection
         let lastSavedTime = 0;
+        let lastTime = 0;
         player.on('timeupdate', function() {
+            // Track the time when not seeking to know where the seek started
+            if (!player.seeking()) {
+                lastTime = player.currentTime();
+            }
+
             const currentTime = player.currentTime();
             if (Math.abs(currentTime - lastSavedTime) >= 5) {
                 lastSavedTime = currentTime;
                 saveVideoProgress(currentTime, player.duration() || 0);
             }
+        });
+
+        // Detect timeline clicks / manual seeking
+        player.on('seeking', function() {
+            try {
+                const current = player.currentTime();
+                const diff = current - lastTime;
+                
+                // Only trigger toast for meaningful seek jumps (e.g. > 1 second)
+                if (Math.abs(diff) > 1) {
+                    const isForward = diff > 0;
+                    const roundedDiff = Math.round(Math.abs(diff));
+                    
+                    // If it was triggered by handleSkip, accumulatedSkip is already updated.
+                    // Otherwise, if triggered by mouse seek, show the seeked amount.
+                    if (window.accumulatedSkip === 0) {
+                        showStatusToast(isForward ? icons.forward : icons.backward, `${isForward ? '+' : '-'}${roundedDiff}s`);
+                    }
+                }
+            } catch (err) {
+                console.error("Seeking toast error:", err);
+            }
+        });
+
+        player.on('play', function() {
+            initAudioBoost();
         });
 
         player.on('pause', function() {
@@ -341,13 +454,13 @@
         }
 
         const icons = {
-            play: '▶️',
-            pause: '⏸️',
-            mute: '🔇',
-            volume: '🔊',
-            forward: '⏩',
-            backward: '⏪',
-            fullscreen: '🖥️'
+            play: '<svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+            pause: '<svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="white" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>',
+            mute: '<svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="white" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.21.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>',
+            volume: '<svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="white" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>',
+            forward: '<svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="white" viewBox="0 0 24 24"><path d="M12.5 12L4 6v12l8.5-6zm9 0L13 6v12l8.5-6z"/></svg>',
+            backward: '<svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="white" viewBox="0 0 24 24"><path d="M11.5 12l8.5 6V6l-8.5 6zm-9 0l8.5 6V6l-8.5 6z"/></svg>',
+            fullscreen: '<svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15"/></svg>'
         };
 
         function showStatusToast(iconHtml, text, percentage = null) {
@@ -404,12 +517,24 @@
                 window.accumulatedSkip += skipInterval;
             }
             
-            if (direction === 'forward') {
-                player.currentTime(Math.min(player.duration() || 0, player.currentTime() + skipInterval));
-                showStatusToast(icons.forward, `+${window.accumulatedSkip}s`);
-            } else {
-                player.currentTime(Math.max(0, player.currentTime() - skipInterval));
-                showStatusToast(icons.backward, `-${window.accumulatedSkip}s`);
+            try {
+                const current = player.currentTime() || 0;
+                const duration = player.duration() || 0;
+                
+                if (direction === 'forward') {
+                    player.currentTime(Math.min(duration, current + skipInterval));
+                    showStatusToast(icons.forward, `+${window.accumulatedSkip}s`);
+                } else {
+                    player.currentTime(Math.max(0, current - skipInterval));
+                    showStatusToast(icons.backward, `-${window.accumulatedSkip}s`);
+                }
+            } catch (err) {
+                // Defensive fallback: show visual indicator even if video seek throws an exception
+                if (direction === 'forward') {
+                    showStatusToast(icons.forward, `+${window.accumulatedSkip}s`);
+                } else {
+                    showStatusToast(icons.backward, `-${window.accumulatedSkip}s`);
+                }
             }
             
             if (window.skipTimeout) {
@@ -422,13 +547,25 @@
             }, 1000); // Keep skip overlay active and reset after 1 second of inactivity
         }
 
+        window.customVolume = 1.0;
+
         // Volume Change Event Listener (Handles both keyboard and mouse control bar changes)
         player.on('volumechange', function() {
-            const volVal = Math.round(player.volume() * 100);
-            const isMuted = player.muted() || volVal === 0;
-            const emoji = isMuted ? icons.mute : icons.volume;
-            const text = isMuted ? 'Muted' : `${volVal}%`;
-            showStatusToast(emoji, text, volVal);
+            try {
+                const currentVol = player.volume();
+                if (currentVol < 1.0 || window.customVolume <= 1.0) {
+                    window.customVolume = currentVol;
+                }
+                const volVal = Math.round(window.customVolume * 100);
+                const isMuted = player.muted() || volVal === 0;
+                
+                // Show warning icon if volume is boosted above 100%
+                const emoji = isMuted ? icons.mute : (window.customVolume > 1.0 ? '⚠️' : icons.volume);
+                const text = isMuted ? 'Muted' : (window.customVolume > 1.0 ? `Volume Boost: ${volVal}%` : `${volVal}%`);
+                showStatusToast(emoji, text, Math.min(100, volVal));
+            } catch (err) {
+                console.error("Volume toast error:", err);
+            }
         });
 
         // Custom keyboard bindings overrides
@@ -445,8 +582,9 @@
             const isDown = e.key === 'ArrowDown' || e.keyCode === 40;
             const isF = e.key.toLowerCase() === 'f' || e.keyCode === 70;
             const isM = e.key.toLowerCase() === 'm' || e.keyCode === 77;
+            const isP = e.key.toLowerCase() === 'p' || e.keyCode === 80;
 
-            if (isLeft || isRight || isSpace || isUp || isDown || isF || isM) {
+            if (isLeft || isRight || isSpace || isUp || isDown || isF || isM || isP) {
                 e.preventDefault();
                 e.stopPropagation();
             }
@@ -456,26 +594,69 @@
             } else if (isRight) {
                 handleSkip('forward');
             } else if (isSpace) {
-                if (player.paused()) {
-                    player.play();
-                    showStatusToast(icons.play, "Play");
-                } else {
-                    player.pause();
-                    showStatusToast(icons.pause, "Pause");
+                try {
+                    if (player.paused()) {
+                        player.play();
+                        showStatusToast(icons.play, "Play");
+                    } else {
+                        player.pause();
+                        showStatusToast(icons.pause, "Pause");
+                    }
+                } catch (err) {
+                    showStatusToast(icons.play, "Toggle Play");
                 }
             } else if (isUp) {
-                player.volume(Math.min(1.0, player.volume() + 0.1)); // volume up 10%
+                try {
+                    initAudioBoost();
+                    window.customVolume = Math.min(2.0, window.customVolume + 0.1);
+                    
+                    if (window.customVolume > 1.0) {
+                        player.volume(1.0);
+                        if (gainNode) {
+                            gainNode.gain.setValueAtTime(window.customVolume, audioCtx.currentTime);
+                        }
+                        const volVal = Math.round(window.customVolume * 100);
+                        showStatusToast('⚠️', `Volume Boost: ${volVal}%`, 100);
+                    } else {
+                        player.volume(window.customVolume);
+                        if (gainNode) {
+                            gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
+                        }
+                    }
+                } catch (err) {}
             } else if (isDown) {
-                player.volume(Math.max(0.0, player.volume() - 0.1)); // volume down 10%
+                try {
+                    window.customVolume = Math.max(0.0, window.customVolume - 0.1);
+                    
+                    if (window.customVolume > 1.0) {
+                        player.volume(1.0);
+                        if (gainNode) {
+                            gainNode.gain.setValueAtTime(window.customVolume, audioCtx.currentTime);
+                        }
+                        const volVal = Math.round(window.customVolume * 100);
+                        showStatusToast('⚠️', `Volume Boost: ${volVal}%`, 100);
+                    } else {
+                        player.volume(window.customVolume);
+                        if (gainNode) {
+                            gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
+                        }
+                    }
+                } catch (err) {}
             } else if (isF) {
-                if (player.isFullscreen()) {
-                    player.exitFullscreen();
-                } else {
-                    player.requestFullscreen();
-                    showStatusToast(icons.fullscreen, "Fullscreen");
-                }
+                try {
+                    if (player.isFullscreen()) {
+                        player.exitFullscreen();
+                    } else {
+                        player.requestFullscreen();
+                        showStatusToast(icons.fullscreen, "Fullscreen");
+                    }
+                } catch (err) {}
             } else if (isM) {
-                player.muted(!player.muted()); // toggle mute
+                try {
+                    player.muted(!player.muted()); // toggle mute
+                } catch (err) {}
+            } else if (isP) {
+                togglePiP();
             }
         }, true);
     </script>

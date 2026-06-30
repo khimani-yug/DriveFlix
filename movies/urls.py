@@ -11,4 +11,6 @@ urlpatterns = [
     path('sync/', views.SyncMoviesView.as_view(), name='sync_movies'),
     path('api/search/', views.SearchAPIView.as_view(), name='search_api'),
     path('api/progress/update/', views.UpdateProgressAPIView.as_view(), name='update_progress'),
+    path('history/', views.WatchHistoryView.as_view(), name='watch_history'),
+    path('history/clear/', views.ClearWatchHistoryView.as_view(), name='clear_watch_history'),
 ]
