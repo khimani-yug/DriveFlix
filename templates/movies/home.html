@@ -39,6 +39,57 @@
             background: #3f3f46;
         }
     </style>
+    <!-- Render Sleep Detector for Mobile App (Capacitor) -->
+    <script>
+        (function() {
+            const isCapacitor = window.hasOwnProperty('Capacitor') || 
+                                navigator.userAgent.includes('Android') || 
+                                navigator.userAgent.includes('iPhone') || 
+                                navigator.userAgent.includes('iPad');
+            if (isCapacitor) {
+                function redirectToLocalGateway() {
+                    const isAndroid = navigator.userAgent.includes('Android');
+                    const localUrl = isAndroid ? 'http://localhost/index.html' : 'capacitor://localhost/index.html';
+                    window.location.replace(localUrl);
+                }
+
+                // Check server responsiveness when app comes to foreground
+                document.addEventListener('visibilitychange', async () => {
+                    if (document.visibilityState === 'visible') {
+                        try {
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 3000);
+                            const response = await fetch('/api/ping/', {
+                                method: 'GET',
+                                signal: controller.signal
+                            });
+                            clearTimeout(timeoutId);
+                            if (response.ok) {
+                                const contentType = response.headers.get('content-type') || '';
+                                if (contentType.includes('application/json')) {
+                                    const data = await response.json();
+                                    if (data && data.status === 'ok') {
+                                        return; // Server is awake and responding!
+                                    }
+                                }
+                            }
+                            redirectToLocalGateway();
+                        } catch (err) {
+                            console.log("Visibility ping failed (server is likely asleep):", err);
+                            redirectToLocalGateway();
+                        }
+                    }
+                });
+
+                // Also check if any assets or API requests fail due to Render's spin-up page
+                window.addEventListener('error', function(e) {
+                    if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+                        redirectToLocalGateway();
+                    }
+                }, true);
+            }
+        })();
+    </script>
 </head>
 <body class="min-h-full flex flex-col antialiased selection:bg-red-600 selection:text-white max-w-full overflow-x-hidden">
     

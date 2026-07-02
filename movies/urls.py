@@ -15,4 +15,5 @@ urlpatterns = [
     path('history/clear/', views.ClearWatchHistoryView.as_view(), name='clear_watch_history'),
     path('api/system-volume/update/', views.SetSystemVolumeAPIView.as_view(), name='set_system_volume'),
     path('api/system-brightness/update/', views.SetSystemBrightnessAPIView.as_view(), name='set_system_brightness'),
+    path('api/ping/', views.PingView.as_view(), name='ping_api'),
 ]

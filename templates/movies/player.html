@@ -2,7 +2,7 @@
 <html lang="en" class="h-full bg-black text-slate-100">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Watching - {{ movie.display_name }} | DriveFlix</title>
     <!-- Favicon / Title Bar Icon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23e50914' d='M10 9v6l5-3zm9-6H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z'/%3E%3C/svg%3E">
@@ -81,7 +81,121 @@
         .video-js, .video-js *, .aspect-video, .aspect-video * {
             touch-action: none !important;
         }
+
+        /* Floating Back Button styles */
+        #player-back-btn {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        /* Show back button only when user is active in the player container */
+        .video-js.vjs-user-active #player-back-btn {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .video-js.vjs-user-inactive #player-back-btn {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Mobile Landscape Orientation overrides to fill the screen */
+        @media (max-width: 1024px) and (orientation: landscape) {
+            header, footer, .mt-6, h1 {
+                display: none !important;
+            }
+            
+            body {
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: hidden !important;
+                height: 100vh !important;
+                width: 100vw !important;
+            }
+            
+            main {
+                padding: 0 !important;
+                margin: 0 !important;
+                max-width: 100vw !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                max-height: 100vh !important;
+                justify-content: center !important;
+                align-items: center !important;
+            }
+            
+            main > div {
+                width: 100vw !important;
+                height: 100vh !important;
+                max-width: 100vw !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            .aspect-video {
+                aspect-ratio: auto !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                border-radius: 0 !important;
+                border: none !important;
+            }
+            
+            .video-js {
+                width: 100vw !important;
+                height: 100vh !important;
+            }
+        }
     </style>
+    <!-- Render Sleep Detector for Mobile App (Capacitor) -->
+    <script>
+        (function() {
+            const isCapacitor = window.hasOwnProperty('Capacitor') || 
+                                navigator.userAgent.includes('Android') || 
+                                navigator.userAgent.includes('iPhone') || 
+                                navigator.userAgent.includes('iPad');
+            if (isCapacitor) {
+                function redirectToLocalGateway() {
+                    const isAndroid = navigator.userAgent.includes('Android');
+                    const localUrl = isAndroid ? 'http://localhost/index.html' : 'capacitor://localhost/index.html';
+                    window.location.replace(localUrl);
+                }
+
+                // Check server responsiveness when app comes to foreground
+                document.addEventListener('visibilitychange', async () => {
+                    if (document.visibilityState === 'visible') {
+                        try {
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 3000);
+                            const response = await fetch('/api/ping/', {
+                                method: 'GET',
+                                signal: controller.signal
+                            });
+                            clearTimeout(timeoutId);
+                            if (response.ok) {
+                                const contentType = response.headers.get('content-type') || '';
+                                if (contentType.includes('application/json')) {
+                                    const data = await response.json();
+                                    if (data && data.status === 'ok') {
+                                        return; // Server is awake and responding!
+                                    }
+                                }
+                            }
+                            redirectToLocalGateway();
+                        } catch (err) {
+                            console.log("Visibility ping failed (server is likely asleep):", err);
+                            redirectToLocalGateway();
+                        }
+                    }
+                });
+
+                // Also check if any assets or API requests fail due to Render's spin-up page
+                window.addEventListener('error', function(e) {
+                    if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+                        redirectToLocalGateway();
+                    }
+                }, true);
+            }
+        })();
+    </script>
 </head>
 <body class="min-h-full flex flex-col antialiased max-w-full overflow-x-hidden">
 
@@ -199,6 +313,23 @@
                 {% endif %}
                 <!-- Brightness Overlay Layer -->
                 <div id="brightness-overlay" class="absolute inset-0 bg-black pointer-events-none transition-opacity duration-150 z-[9990] opacity-0"></div>
+
+                <!-- Floating Back Button (for mobile landscape / fullscreen) -->
+                <div id="player-back-btn" class="absolute top-4 left-4 z-40 transition-opacity duration-300 opacity-0 pointer-events-none">
+                    {% if movie.folder %}
+                        <a href="{% url 'folder' movie.folder.folder_id %}" class="inline-flex items-center justify-center p-2.5 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/10 backdrop-blur-md transition-all">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"></path>
+                            </svg>
+                        </a>
+                    {% else %}
+                        <a href="/" class="inline-flex items-center justify-center p-2.5 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/10 backdrop-blur-md transition-all">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"></path>
+                            </svg>
+                        </a>
+                    {% endif %}
+                </div>
 
                 <!-- Status Toast/Overlay (e.g. Volume, Skip) -->
                 <div id="player-status-toast" class="pointer-events-none absolute inset-0 flex items-center justify-center z-[9999] opacity-0 transition-opacity duration-300">
@@ -424,6 +555,12 @@
             const brightnessOverlay = document.getElementById('brightness-overlay');
             if (brightnessOverlay) {
                 player.el().appendChild(brightnessOverlay);
+            }
+
+            // Move back button inside Video.js container so it overlays properly and matches activity classes
+            const backBtn = document.getElementById('player-back-btn');
+            if (backBtn) {
+                player.el().appendChild(backBtn);
             }
         });
 
@@ -683,8 +820,8 @@
         let playerBrightness = 1.0; // Range: 0.0 (dark) to 1.0 (bright)
 
         playerEl.addEventListener('pointerdown', function(e) {
-            // Only allow on mobile/tablet viewports (screen width less than 1024px) or native mobile app
-            if (window.innerWidth >= 1024 && !isNativeApp) {
+            // Only allow on touch interactions or mobile devices
+            if (e.pointerType !== 'touch' && !isNativeApp && !window.matchMedia("(pointer: coarse)").matches) {
                 return;
             }
 
@@ -707,6 +844,12 @@
             } else {
                 dragContext = 'brightness';
                 dragStartVal = playerBrightness;
+            }
+
+            // Disable transition opacity during active dragging for real-time responsiveness
+            const overlay = document.getElementById('brightness-overlay');
+            if (overlay) {
+                overlay.style.transition = 'none';
             }
 
             // Flash toast immediately on touch/click start
@@ -774,10 +917,21 @@
             try {
                 playerEl.releasePointerCapture(e.pointerId);
             } catch (err) {}
+
+            // Re-enable transition opacity once dragging finishes
+            const overlay = document.getElementById('brightness-overlay');
+            if (overlay) {
+                overlay.style.transition = '';
+            }
         };
 
         playerEl.addEventListener('pointerup', handlePointerEnd);
         playerEl.addEventListener('pointercancel', handlePointerEnd);
+
+        // Prevent default touch moves to block native page scrolling/pull-to-refresh while swiping on the player
+        playerEl.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
 
         // Custom keyboard bindings overrides
         window.addEventListener('keydown', function(e) {

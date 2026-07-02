@@ -567,3 +567,20 @@ class SubtitlesProxyView(View):
             
         raise Http404("Subtitle file not found or failed to load")
 
+
+class PingView(View):
+    def dispatch(self, request, *args, **kwargs):
+        if request.method == 'OPTIONS':
+            response = HttpResponse()
+        else:
+            response = super().dispatch(request, *args, **kwargs)
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        return response
+
+    def get(self, request, *args, **kwargs):
+        return JsonResponse({"status": "ok"})
+
+
+
